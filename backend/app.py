@@ -2,7 +2,10 @@ import os
 import shutil
 import cv2
 import subprocess
-from flask import Flask, request, jsonify, send_from_directory
+from gtts import gTTS
+#from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory
+
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -113,6 +116,39 @@ def generate_video():
         return jsonify({"error": "Video optimization failed"}), 500
     # Return the video URL
     return jsonify({"video_url": f"/video/{os.path.basename(final_video_path)}"})
+
+
+
+
+# Folder for audio output
+OUTPUT_FOLDER = os.path.join(os.getcwd(), "audio_output")
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+@app.route('/synthesize', methods=['POST'])
+def synthesize_text():
+    try:
+        data = request.get_json()
+        text = data.get('text', '').strip()
+
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+
+        # Convert text to speech
+        tts = gTTS(text=text, lang='en')
+        output_file = os.path.join(OUTPUT_FOLDER, 'output.mp3')
+        tts.save(output_file)
+
+        # Check if file was successfully created
+        if os.path.exists(output_file):
+            return send_file(output_file, mimetype='audio/mp3', as_attachment=True)
+        else:
+            print(f"Error: File not created at {output_file}")
+            return jsonify({'error': "File creation failed"}), 500
+
+    except Exception as e:
+        print(f"Error in /synthesize route: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/temp/<filename>')
